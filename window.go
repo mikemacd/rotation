@@ -12,7 +12,7 @@ type WindowHandler struct {
 
 // Gets called when "something" changes in the environment and the Window system needs to tell the application to "redraw" itself.
 func (self WindowHandler) Draw(a *ui.Area, db *ui.AreaDrawParams) {
-	R.Render(a,db)
+	R.Render(a, db)
 }
 
 // Stub to match ui.WindowHandler interface
