@@ -4,18 +4,22 @@ import (
 	"bufio"
 	"errors"
 	"log"
+	"math"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
-	"github.com/andlabs/ui"
-	"github.com/davecgh/go-spew/spew"
 	flag "github.com/ogier/pflag"
+	"github.com/davecgh/go-spew/spew"
+	"github.com/andlabs/ui"
+	"sync"
 )
 
 var err error
 var R *Rotation
+var mutex = &sync.Mutex{}
 
 // A point is a point in three dimensional space
 type point struct {
@@ -37,7 +41,10 @@ type Config struct {
 	debug     int
 	filename  string
 	wireframe bool
-	delay     float64
+	zoom	  float64
+	delay     int64
+	// Rotation factors
+	xy,xz,yz  float64
 }
 
 type Rotation struct {
@@ -58,22 +65,28 @@ func NewRotation() *Rotation {
 			0,
 			"",
 			false,
-			0.0,
+			1.0,
+			100,
+			.03,
+			.06,
+			.09,
 		},
 	}
 	return &o
 }
 
 type Rotatable interface {
-	ReadOpts()
+	ReadOpts() error
+	ReadFile() error
+	Rotate()
 }
 
 func (r *Rotation) ReadOpts() error {
-	flag.StringVarP(&r.config.filename, "filename", "f", "", "Data file to load")
-	flag.Float64VarP(&r.config.delay, "delay", "d", 0.0, "Delay to add to rotation. (Default: 0) ")
-	flag.BoolVarP(&r.config.wireframe, "wireframe", "w", false, "Show object as a wirefram? (Default: no)")
-	flag.IntVarP(&r.config.debug, "debug", "g", 0, "Debug logging level. 0=none, 1=some (Default: 0)")
-
+	flag.StringVarP( &r.config.filename,  "filename",  "f", "",    "Data file to load")
+	flag.Int64VarP(  &r.config.delay,     "delay",     "d", 100,   "Delay (ms) to add to rotation. (Default: 100ms) ")
+	flag.BoolVarP(   &r.config.wireframe, "wireframe", "w", false, "Show object as a wirefram? (Default: no)")
+	flag.IntVarP(    &r.config.debug,    "debug",      "g", 0,     "Debug logging level. 0=none, 1=some (Default: 0)")
+	flag.Float64VarP(&r.config.zoom,     "zoom",       "z", 1.0,   "Zoom factor")
 	flag.Parse()
 
 	if r.config.filename == "" {
@@ -82,6 +95,10 @@ func (r *Rotation) ReadOpts() error {
 
 	if r.config.delay < 0 {
 		return errors.New("Delay must be positive.")
+	}
+
+	if r.config.zoom < 0 {
+		return errors.New("Zoom factor must be positive.")
 	}
 	return nil
 
@@ -181,9 +198,39 @@ func (r *Rotation) ReadFile() error {
 	return nil
 }
 
-func (r *Rotation) Render(a *ui.Area, db *ui.AreaDrawParams) {
-	log.Println("Rendering")
- 	brush := ui.Brush{Type: ui.Solid, R: 0x00, G: 0x00, B: 0x00, A: 0x3F}
+func (r *Rotation) Rotate() {
+	for i := range r.points {
+		var x0,y0,z0 float64
+		var x1,y1,z1 float64
+		var x2,y2,z2 float64
+		var x3,y3,z3 float64
+
+		x0 = r.points[i].x
+		y0 = r.points[i].y
+		z0 = r.points[i].z
+
+		x1 = x0 * math.Cos(r.config.xy) - y0 * math.Sin(r.config.xy)
+		y1 = x0 * math.Sin(r.config.xy) + y0 * math.Cos(r.config.xy)
+		z1 = z0
+
+		x2 = x1 * math.Cos(r.config.xz) - z1 * math.Sin(r.config.xz)
+		y2 = y1
+		z2 = x1 * math.Sin(r.config.xz) + z1 * math.Cos(r.config.xz)
+
+		x3 = x2
+		y3 = y2 * math.Cos(r.config.yz) - z2 * math.Sin(r.config.yz)
+		z3 = y2 * math.Sin(r.config.yz) + z2 * math.Cos(r.config.yz)
+
+		mutex.Lock()
+		r.points[i] = point{ x3, y3, z3 }
+		mutex.Unlock()
+
+	}
+}
+
+func (r *Rotation) Render( a *ui.Area, db *ui.AreaDrawParams) {
+//	blackbrush := ui.Brush{Type: ui.Solid, R: 0x00, G: 0x00, B: 0x00, A: 0x3F}
+//	whitebrush := ui.Brush{Type: ui.Solid, R: 0xFF, G: 0xFF, B: 0xFF, A: 0x3F}
 	strokeParams := ui.StrokeParams{
 		Thickness: 1,
 	}
@@ -192,38 +239,50 @@ func (r *Rotation) Render(a *ui.Area, db *ui.AreaDrawParams) {
 	wx := db.AreaWidth / 2
 	wy := db.AreaHeight / 2
 
-	path := ui.NewPath(ui.Winding)
 
-	for i := range R.planes {
-
+	if r.config.debug > 2 {
+		spew.Dump("Zoom", r.config.zoom)
+	}
+	for i := range r.planes {
+		path := ui.NewPath(ui.Winding)
+		mutex.Lock()
 		path.NewFigure(
-			R.points[R.planes[i].p1].x+wx,
-			R.points[R.planes[i].p1].y+wy,
+			r.points[r.planes[i].p1].x * r.config.zoom + wx,
+			r.points[r.planes[i].p1].y * r.config.zoom + wy,
 		)
 		path.LineTo(
-			R.points[R.planes[i].p2].x+wx,
-			R.points[R.planes[i].p2].y+wy,
+			r.points[r.planes[i].p2].x * r.config.zoom + wx,
+			r.points[r.planes[i].p2].y * r.config.zoom + wy,
 		)
 		path.LineTo(
-			R.points[R.planes[i].p3].x+wx,
-			R.points[R.planes[i].p3].y+wy,
+			r.points[r.planes[i].p3].x * r.config.zoom + wx,
+			r.points[r.planes[i].p3].y * r.config.zoom + wy,
 		)
+		mutex.Unlock()
 		path.CloseFigure()
+		path.End()
+		// db.Context.Fill(path, &blackbrush)
+		db.Context.Stroke(path, &ui.Brush{Type: ui.Solid, R: 0x00, G: 0x00, B: 0x00, A: 0x3F}, &strokeParams)
 
 	}
 
-	path.End()
-
-	db.Context.Stroke(path, &brush, &strokeParams)
 	db.Context.Save()
 	db.Context.Restore()
 
-	path.Free()
 }
-func (r *Rotation) Rotate() {
+func (r *Rotation) Run(area *ui.Area) {
+	if r.config.debug > 2 {
+		spew.Dump("delay: ", r.config.delay)
+	}
+ 	for  {
+		r.Rotate()
 
+		time.Sleep(time.Duration(r.config.delay)*time.Millisecond)
+		ui.QueueMain(func() {
+			area.QueueRedrawAll()
+		})
+	}
 }
-
 func main() {
 	R = NewRotation()
 
@@ -239,8 +298,8 @@ func main() {
 
 	err := ui.Main(func() {
 		window := ui.NewWindow("Rotation", 800, 600, false)
-		window.OnClosing(func(*Window) bool {
-			Quit()
+		window.OnClosing(func(*ui.Window) bool {
+			ui.Quit()
 			return true
 		})
 		WindowHandler := WindowHandler{Window: window}
@@ -256,6 +315,8 @@ func main() {
 
 		window.SetChild(box)
 		window.Show()
+
+		go R.Run(area)
 
  	})
 	if err != nil {
