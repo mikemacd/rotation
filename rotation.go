@@ -114,12 +114,12 @@ func (r *Rotation) ReadOpts() error {
 
 }
 
-func ReadLine(fs *bufio.Scanner) (string) {
+func ReadLine(fs *bufio.Scanner) string {
 	line := ""
-        for line == "" || line[0:1]=="#" {
-                fs.Scan()
-                line = strings.Trim(fs.Text(), " ")
-        }
+	for line == "" || line[0:1] == "#" {
+		fs.Scan()
+		line = strings.Trim(fs.Text(), " ")
+	}
 	return line
 }
 
