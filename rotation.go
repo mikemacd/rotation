@@ -114,6 +114,15 @@ func (r *Rotation) ReadOpts() error {
 
 }
 
+func ReadLine(fs *bufio.Scanner) (string) {
+	line := ""
+        for line == "" || line[0:1]=="#" {
+                fs.Scan()
+                line = strings.Trim(fs.Text(), " ")
+        }
+	return line
+}
+
 func (r *Rotation) ReadFile() error {
 
 	f, e := os.Open(r.config.filename)
@@ -122,8 +131,7 @@ func (r *Rotation) ReadFile() error {
 	}
 	fs := bufio.NewScanner(f)
 
-	fs.Scan()
-	r.pointCount, _ = strconv.Atoi(fs.Text())
+	r.pointCount, _ = strconv.Atoi(ReadLine(fs))
 	if r.config.debug > 0 {
 		log.Println(r.pointCount, " points to be read.")
 	}
@@ -132,12 +140,7 @@ func (r *Rotation) ReadFile() error {
 		if r.config.debug > 0 {
 			log.Println("reading points itteration: ", i)
 		}
-		line := ""
-		for line == "" {
-			fs.Scan()
-			line = strings.Trim(fs.Text(), " ")
-		}
-		parts := strings.Fields(line)
+		parts := strings.Fields(ReadLine(fs))
 
 		x, e1 := strconv.ParseFloat(parts[0], 64)
 		y, e2 := strconv.ParseFloat(parts[1], 64)
@@ -153,8 +156,7 @@ func (r *Rotation) ReadFile() error {
 		}
 	}
 
-	fs.Scan()
-	r.planeCount, _ = strconv.Atoi(fs.Text())
+	r.planeCount, _ = strconv.Atoi(ReadLine(fs))
 	if r.config.debug > 0 {
 		log.Println(r.planeCount, " planes to be read.")
 	}
@@ -163,12 +165,7 @@ func (r *Rotation) ReadFile() error {
 		if r.config.debug > 0 {
 			log.Println("reading planes itteration: ", i)
 		}
-		line := ""
-		for line == "" {
-			fs.Scan()
-			line = strings.Trim(fs.Text(), " ")
-		}
-		parts := strings.Fields(line)
+		parts := strings.Fields(ReadLine(fs))
 
 		v1, e1 := strconv.Atoi(parts[0])
 		v2, e2 := strconv.Atoi(parts[1])
