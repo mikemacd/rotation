@@ -1,0 +1,9 @@
+# github.com/andlabs/ui v0.0.0-20200610043537-70a69d6ae31e
+## explicit
+github.com/andlabs/ui
+# github.com/davecgh/go-spew v1.1.1
+## explicit
+github.com/davecgh/go-spew/spew
+# github.com/ogier/pflag v0.0.1
+## explicit
+github.com/ogier/pflag

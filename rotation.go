@@ -273,7 +273,7 @@ func (r *Rotation) Rotate() {
 }
 
 func (r *Rotation) Render(a *ui.Area, db *ui.AreaDrawParams) {
-	strokeParams := ui.StrokeParams{
+	strokeParams := ui.DrawStrokeParams{
 		Thickness: 1,
 	}
 
@@ -284,7 +284,7 @@ func (r *Rotation) Render(a *ui.Area, db *ui.AreaDrawParams) {
 	mutex.Lock()
 	for i := range r.planes {
 		if r.planes[i].theta > 0 || r.config.wireframe {
-			path := ui.NewPath(ui.Winding)
+			path := ui.DrawNewPath(ui.DrawFillModeWinding)
 			path.NewFigure(
 				r.points[r.planes[i].p1].x*r.config.zoom+wx,
 				r.points[r.planes[i].p1].y*r.config.zoom+wy,
@@ -301,9 +301,9 @@ func (r *Rotation) Render(a *ui.Area, db *ui.AreaDrawParams) {
 			path.End()
 
 			if r.config.wireframe {
-				db.Context.Stroke(path, &ui.Brush{Type: ui.Solid, R: 0x00, G: 0x00, B: 0x00, A: 0x3F}, &strokeParams)
+				db.Context.Stroke(path, &ui.DrawBrush{Type: ui.DrawBrushTypeSolid, R: 0x00, G: 0x00, B: 0x00, A: 0x3F}, &strokeParams)
 			} else {
-				db.Context.Fill(path, &ui.Brush{Type: ui.Solid, R: r.planes[i].theta, G: r.planes[i].theta, B: r.planes[i].theta, A: 0xFF})
+				db.Context.Fill(path, &ui.DrawBrush{Type: ui.DrawBrushTypeSolid, R: r.planes[i].theta, G: r.planes[i].theta, B: r.planes[i].theta, A: 0xFF})
 			}
 		}
 	}
